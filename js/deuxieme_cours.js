@@ -46,36 +46,36 @@ let Grille = 4;
 function preload(){
   sound = loadSound('sound/strudel.mp3');
 
-  font = loadFont('Polices/Persvrance-SymbolesDot.otf');
-  font1 = loadFont('Polices/Persvrance-SymbolesCarre.otf');
-  font2 = loadFont('Polices/Persvrance-SymbolesCarreFusion.otf');
-  font3 = loadFont('Polices/Persvrance-SymbCarreFusion-SemiBold.otf');
-  font4 = loadFont('Polices/Persvrance-SymbCarreFusion-Bold.otf');
-  font5 = loadFont('Polices/Persvrance-SymbCarreFusion-Black.otf');
-  font6 = loadFont('Polices/Persvrance-SymbCarreFusion-BlackPlus.otf');
+  font = loadFont('polices/Persvrance-SymbolesDot.otf');
+  font1 = loadFont('polices/Persvrance-SymbolesCarre.otf');
+  font2 = loadFont('polices/Persvrance-SymbolesCarreFusion.otf');
+  font3 = loadFont('polices/Persvrance-SymbCarreFusion-SemiBold.otf');
+  font4 = loadFont('polices/Persvrance-SymbCarreFusion-Bold.otf');
+  font5 = loadFont('polices/Persvrance-SymbCarreFusion-Black.otf');
+  font6 = loadFont('polices/Persvrance-SymbCarreFusion-BlackPlus.otf');
 
-  Font = loadFont('Polices/Persvrance-Dot.otf');
-  Font1 = loadFont('Polices/Persvrance-Carre.otf');
-  Font2 = loadFont('Polices/Persvrance-Fusion-Regular.otf');
-  Font3 = loadFont('Polices/Persvrance-Fusion-SemiBold.otf');
-  Font4 = loadFont('Polices/Persvrance-Fusion-Black.otf');
-  Font5 = loadFont('Polices/Persvrance-Carre45-regular.otf');
-  Font6 = loadFont('Polices/Persvrance-Carre45Fusion.otf');
-  Font7 = loadFont('Polices/Persvrance-Carre45Fusion-SemiBold.otf');
-  Font8 = loadFont('Polices/Persvrance-Carre45Fusion-Black.otf');
+  Font = loadFont('polices/Persvrance-Dot.otf');
+  Font1 = loadFont('polices/Persvrance-Carre.otf');
+  Font2 = loadFont('polices/Persvrance-Fusion-Regular.otf');
+  Font3 = loadFont('polices/Persvrance-Fusion-SemiBold.otf');
+  Font4 = loadFont('polices/Persvrance-Fusion-Black.otf');
+  Font5 = loadFont('polices/Persvrance-Carre45-regular.otf');
+  Font6 = loadFont('polices/Persvrance-Carre45Fusion.otf');
+  Font7 = loadFont('polices/Persvrance-Carre45Fusion-SemiBold.otf');
+  Font8 = loadFont('polices/Persvrance-Carre45Fusion-Black.otf');
 
   // Rectangle45 fonts
-  Rect45D = loadFont('Polices/Persvrance-Rectangle45D.otf');
-  Rect45G = loadFont('Polices/Persvrance-Rectangle45G.otf');
-  Rect45FD_Reg = loadFont('Polices/Persvrance-Rectangle45FusionD-Regular.otf');
-  Rect45FD_Semi = loadFont('Polices/Persvrance-Rectangle45FusionD1-SemiBold.otf');
-  Rect45FD_Bold = loadFont('Polices/Persvrance-Rectangle45FusionD-Bold.otf');
-  Rect45FD_Black = loadFont('Polices/Persvrance-Rectangle45FusionD-Black.otf');
-  Rect45FD_BlackP = loadFont('Polices/Persvrance-Rectangle45FusionD-BlackPlus.otf');
-  Rect45FG_Reg = loadFont('Polices/Persvrance-Rectangle45GFusion-Regular.otf');
-  Rect45FG_Semi = loadFont('Polices/Persvrance-Rectangle45FusionG-SemiBold.otf');
-  Rect45FG_Bold = loadFont('Polices/Persvrance-Rectangle45FusionG-Bold.otf');
-  Rect45FG_Black = loadFont('Polices/Persvrance-Rectangle45FusionG-Black.otf');
+  Rect45D = loadFont('polices/Persvrance-Rectangle45D.otf');
+  Rect45G = loadFont('polices/Persvrance-Rectangle45G.otf');
+  Rect45FD_Reg = loadFont('polices/Persvrance-Rectangle45FusionD-Regular.otf');
+  Rect45FD_Semi = loadFont('polices/Persvrance-Rectangle45FusionD1-SemiBold.otf');
+  Rect45FD_Bold = loadFont('polices/Persvrance-Rectangle45FusionD-Bold.otf');
+  Rect45FD_Black = loadFont('polices/Persvrance-Rectangle45FusionD-Black.otf');
+  Rect45FD_BlackP = loadFont('polices/Persvrance-Rectangle45FusionD-BlackPlus.otf');
+  Rect45FG_Reg = loadFont('polices/Persvrance-Rectangle45GFusion-Regular.otf');
+  Rect45FG_Semi = loadFont('polices/Persvrance-Rectangle45FusionG-SemiBold.otf');
+  Rect45FG_Bold = loadFont('polices/Persvrance-Rectangle45FusionG-Bold.otf');
+  Rect45FG_Black = loadFont('polices/Persvrance-Rectangle45FusionG-Black.otf');
 
   signaImg = loadImage('image/signa_blanc.png');
 }
@@ -258,8 +258,9 @@ if (Grille === 4 && keyCode === UP_ARROW) {
 if (Grille === 4 && keyCode === DOWN_ARROW) {
   fontScaleG5 = max(fontScaleG5 - 0.1, 0.3);
 }
-
 }
+
+function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   if (g5) {
     g5.resizeCanvas(windowWidth, windowHeight);
@@ -267,6 +268,7 @@ if (Grille === 4 && keyCode === DOWN_ARROW) {
   if (footerGfx) {
     footerGfx.resizeCanvas(windowWidth, windowHeight);
   }
+}
 
 
 function mouseWheel(event) {
