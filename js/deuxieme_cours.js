@@ -25,7 +25,7 @@ let hoveredBand = -1;
 let scrollWheelDelta = 0;
 let bandScales = new Array(MAX_BANDS).fill(1);
 let currentVariant = 0;
-let variantNames = ['Clasique', 'Carré 45°', 'Rectangles 45°D', 'Rectangles 45°G', 'Pixel and Dot', 'Symboles',];
+let variantNames = ['Clasique', 'Carré \n 45°', 'Rectangles\n 45°D', 'Rectangles\n 45°G', 'Pixel \nand Dot', 'Symboles',];
 let isSymbolesVariant = [false, false, false, false, false, true]; // true pour variante Symboles uniquement
 let variantFonts = []; // sera rempli dans setup
 let buttonBarHeight = 50;
@@ -109,18 +109,49 @@ function setup() {
 
     // Buffer 2D pour le footer (contrôles + signature)
     footerGfx = createGraphics(windowWidth, windowHeight);
+    
+    // Activer le support tactile
+    checkTouchSupport();
 }
 
-// Fonction utilitaire pour afficher les contrôles en bas à gauche (contexte WEBGL, après translate)
+// Variables globales pour les boutons virtuels
+let virtualButtons = {
+  grille: { x: 0, y: 0, w: 60, h: 40, label: 'GRILLE', color: [100, 0, 0] },
+  font: { x: 0, y: 0, w: 50, h: 40, label: 'FONT', color: [200, 0, 0] },
+  prevChar: { x: 0, y: 0, w: 50, h: 40, label: '←', color: [150, 0, 0] },
+  nextColor: { x: 0, y: 0, w: 50, h: 40, label: '→', color: [150, 0, 0] },
+  plus: { x: 0, y: 0, w: 45, h: 40, label: '+', color: [100, 0, 0] },
+  minus: { x: 0, y: 0, w: 45, h: 40, label: '−', color: [100, 0, 0] }
+};
+
+// Fonction pour obtenir le texte approprié (PC vs Mobile)
+function getControlsText(gridNum, textPC, textMobile) {
+  if (!isTouchDevice) {
+    return textPC;
+  }
+  return textMobile;
+}
+
+// Dessiner les contrôles en bas à gauche (contexte WEBGL, après translate)
 function drawFooterControls(controlsText) {
   let fg = footerGfx;
   fg.clear();
   fg.noStroke();
   fg.fill(150);
-  fg.textSize(12);
+  
+  // Adapter la taille du texte en fonction du dispositif
+  let textSize = isTouchDevice ? 10 : 12;
+  fg.textSize(textSize);
+  
   fg.textAlign(LEFT, BOTTOM);
   fg.textFont('Arial');
   fg.text(controlsText, 15, height - 10);
+  
+  // Afficher les boutons virtuels sur mobile
+  if (isTouchDevice) {
+    drawVirtualButtons(virtualButtons, fg);
+  }
+  
   // Image signature en bas à droite
   if (signaImg) {
     let imgH = 35;
@@ -130,7 +161,66 @@ function drawFooterControls(controlsText) {
   image(fg, 0, 0);
 }
 
+// Dessiner les boutons virtuels tactiles
+function drawVirtualButtons(buttons, fg) {
+  if (!isTouchDevice) return;
+  
+  let btnW = 40;
+  let btnH = 35;
+  let spacing = 3;
+  let startX = 8;
+  let startY = height - btnH - 8;
+  let currentX = startX;
+  
+  for (let key in buttons) {
+    let btn = buttons[key];
+    btn.x = currentX;
+    btn.y = startY;
+    btn.w = btnW;
+    btn.h = btnH;
+    
+    // Dessiner le bouton
+    fg.fill(...btn.color);
+    fg.noStroke();
+    fg.rect(btn.x, btn.y, btn.w, btn.h, 3);
+    
+    // Texte du bouton - très petit pour mobile
+    fg.fill(0, 0, 100);
+    fg.textSize(7);
+    fg.textAlign(CENTER, CENTER);
+    fg.textFont('Arial');
+    fg.text(btn.label, btn.x + btn.w/2, btn.y + btn.h/2);
+    
+    currentX += btnW + spacing;
+  }
+}
+
+// Vérifier si un appui tactile est sur un bouton
+function checkVirtualButtonHit(touchX, touchY, buttons) {
+  for (let key in buttons) {
+    let btn = buttons[key];
+    if (touchX >= btn.x && touchX < btn.x + btn.w &&
+        touchY >= btn.y && touchY < btn.y + btn.h) {
+      return key;
+    }
+  }
+  return null;
+}
+
 let zoom =0.009; let temps =0;
+
+// ======== TOUCH SUPPORT ========
+let touchStartX = 0, touchStartY = 0;
+let touchEndX = 0, touchEndY = 0;
+let isTouchDevice = false;
+let touchIdentifier = -1;
+let isSwipeScrolling = false;
+
+// Détecter si c'est un appareil tactile
+function checkTouchSupport() {
+  isTouchDevice = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
+  console.log('Touch device detected:', isTouchDevice);
+}
 
 function draw() {
    translate(-width/2,-height/2)
@@ -162,11 +252,11 @@ else if (Grille === 4) {
 }
 }
 
-function mousePressed(){
+function handleInteractionClick(clickX, clickY) {
  // Clic sur les boutons de variante dans grille5
- if (Grille === 4 && mouseY < buttonBarHeight) {
+ if (Grille === 4 && clickY < buttonBarHeight) {
    let btnW = width / variantNames.length;
-   let clickedBtn = floor(mouseX / btnW);
+   let clickedBtn = floor(clickX / btnW);
    if (clickedBtn >= 0 && clickedBtn < variantNames.length && clickedBtn !== currentVariant) {
      currentVariant = clickedBtn;
      filterGrille5Chars();
@@ -178,14 +268,14 @@ function mousePressed(){
  }
  
  // Clic sur un bandeau en mode normal pour passer en fullpage
- if (Grille === 4 && !isFullPageMode && mouseY >= buttonBarHeight && mouseY < height - footerHeight) {
+ if (Grille === 4 && !isFullPageMode && clickY >= buttonBarHeight && clickY < height - footerHeight) {
    let isSymboles = isSymbolesVariant[currentVariant];
    let fonts5 = variantFonts[currentVariant];
    let numWeights = fonts5.length;
    let numBands = isSymboles ? numWeights : numWeights * 2;
    let availableHeight = height - buttonBarHeight - footerHeight;
    let baseBandHeight = availableHeight / numBands;
-   let mY = mouseY - buttonBarHeight;
+   let mY = clickY - buttonBarHeight;
    
    for (let b = 0; b < numBands; b++) {
      if (mY >= baseBandHeight * b && mY < baseBandHeight * (b + 1)) {
@@ -199,6 +289,128 @@ function mousePressed(){
  if(lecture == false){
   sound.play()
  }    
+}
+
+function mousePressed(){
+  handleInteractionClick(mouseX, mouseY);
+}
+
+// ======== TOUCH EVENTS ========
+function touchStarted(event) {
+  if (event.touches && event.touches.length > 0) {
+    touchStartX = mouseX;
+    touchStartY = mouseY;
+    touchIdentifier = event.touches[0].identifier;
+    isSwipeScrolling = false;
+    
+    // Empêcher le scroll par défaut
+    if (Grille === 4 && hoveredBand >= 0) {
+      event.preventDefault();
+    }
+    return false;
+  }
+}
+
+function touchMoved(event) {
+  if (event.touches && event.touches.length > 0) {
+    // p5.js met automatiquement à jour mouseX et mouseY
+    // Pas besoin de le faire manuellement
+    isSwipeScrolling = true;
+    
+    // Empêcher le scroll par défaut pendant interactions
+    if (Grille === 4 && hoveredBand >= 0) {
+      event.preventDefault();
+    }
+    return false;
+  }
+}
+
+function touchEnded(event) {
+  if (event.changedTouches && event.changedTouches.length > 0) {
+    touchEndX = mouseX;
+    touchEndY = mouseY;
+    
+    let deltaX = touchEndX - touchStartX;
+    let deltaY = abs(touchEndY - touchStartY);
+    let deltaXAbs = abs(deltaX);
+    
+    // Clic simple (pas de swipe)
+    if (deltaXAbs < 30 && deltaY < 30) {
+      // Vérifier les boutons virtuels d'abord
+      let buttonHit = checkVirtualButtonHit(touchEndX, touchEndY, virtualButtons);
+      if (buttonHit) {
+        handleVirtualButton(buttonHit);
+      } else {
+        handleInteractionClick(touchStartX, touchStartY);
+      }
+    }
+    // Détection du swipe horizontal (pour défiler bandeaux ou grilles)
+    else if (deltaXAbs > 50 && deltaY < 100) {
+      if (Grille === 4 && hoveredBand >= 0) {
+        // Swipe sur grille5 - défiler le bandeau
+        scrollWheelDelta = deltaX * 0.5;
+      } else if (Grille !== 4) {
+        // Swipe pour changer de caractère/couleur sur autres grilles
+        if (deltaX > 0) {
+          // Swipe droite = couleur suivante
+          colorChoisi++; 
+          colorChoisi = colorChoisi % colorListe.length;
+        } else {
+          // Swipe gauche = caractère suivant
+          caractereChoisi++; 
+          caractereChoisi = caractereChoisi % liste.length;
+        }
+      }
+    }
+    // Détection du swipe vertical (changer de grille)
+    else if (deltaY > 80 && deltaXAbs < 50) {
+      if (touchEndY < touchStartY) {
+        // Swipe haut = grille suivante
+        Grille++; 
+        Grille = Grille % 5;
+      } else {
+        // Swipe bas = grille précédente
+        Grille--; 
+        if (Grille < 0) Grille = 4;
+      }
+    }
+    
+    isSwipeScrolling = false;
+    event.preventDefault();
+    return false;
+  }
+}
+
+// Gérer les appuis sur les boutons virtuels
+function handleVirtualButton(buttonKey) {
+  switch(buttonKey) {
+    case 'grille':
+      Grille++; 
+      Grille = Grille % 5;
+      break;
+    case 'font':
+      fontChoisi++; 
+      fontChoisi = fontChoisi % fontListe.length;
+      FontChoisi++; 
+      FontChoisi = FontChoisi % FontListe.length;
+      break;
+    case 'prevChar':
+      caractereChoisi++; 
+      caractereChoisi = caractereChoisi % liste.length;
+      break;
+    case 'nextColor':
+      colorChoisi++; 
+      colorChoisi = colorChoisi % colorListe.length;
+      colorChoisiFi++; 
+      colorChoisiFi = colorChoisiFi % colorListeFi.length;
+      break;
+    case 'plus':
+      fontScaleG5 = min(fontScaleG5 + 0.1, 1.5);
+      break;
+    case 'minus':
+      fontScaleG5 = max(fontScaleG5 - 0.1, 0.3);
+      break;
+  }
 }
 
 function keyPressed(){
@@ -369,7 +581,9 @@ function grille1(){
     }
    }
  }
- drawFooterControls('Souris : orienter les caractères  |  F : changer de font  |  ← : changer de caractère  |  → : changer de couleur  |  A : changer de grille');
+ let textPC = 'Souris : orienter les caractères  |  F : changer de font  |  ← : changer de caractère  |  → : changer de couleur  |  A : changer de grille';
+ let textMobile = '↻ : Grille  |  F : Font  |  ← : Char  |  → : Couleur  |  Swipe ↑↓ : Grille';
+ drawFooterControls(getControlsText(0, textPC, textMobile));
 }
 
 
@@ -405,7 +619,9 @@ text(liste[caractereChoisi],-16.5,1)
 pop()    
   }
  }
- drawFooterControls('Souris : interaction  |  F : changer de font  |  → : changer de couleur  |  A : changer de grille');
+ let textPC = 'Souris : interaction  |  F : changer de font  |  → : changer de couleur  |  A : changer de grille';
+ let textMobile = 'Tap : Interaction  |  F : Font  |  → : Couleur  |  Swipe ↑↓ : Grille';
+ drawFooterControls(getControlsText(1, textPC, textMobile));
 }
 
 function grille3(){
@@ -489,7 +705,9 @@ else{
          }
       }
     }
-  drawFooterControls('Souris : densité de la grille  |  F : changer de font  |  ← : changer de caractère  |  → : changer de couleur  |  A : changer de grille');
+  let textPC = 'Souris : densité de la grille  |  F : changer de font  |  ← : changer de caractère  |  → : changer de couleur  |  A : changer de grille';
+  let textMobile = 'Tap : Densité  |  F : Font  |  ← : Char  |  → : Couleur  |  Swipe ↑↓ : Grille';
+  drawFooterControls(getControlsText(2, textPC, textMobile));
   }
 
   function grille4(){
@@ -561,7 +779,9 @@ else if (mouseX > 1000) {
  pop()
 }
 }
- drawFooterControls('Souris : zones d\'interaction  |  F : changer de font  |  G : changer de preset  |  ← → : caractère/couleur  |  A : changer de grille');
+ let textPC = 'Souris : zones d\'interaction  |  F : changer de font  |  G : changer de preset  |  ← → : caractère/couleur  |  A : changer de grille';
+ let textMobile = 'Tap : Zones  |  F : Font  |  G : Preset  |  ← → : Char/Couleur  |  Swipe ↑↓ : Grille';
+ drawFooterControls(getControlsText(3, textPC, textMobile));
 }
 
 
@@ -637,9 +857,13 @@ function drawBandFullPage(bandIndex) {
   g.rect(0, 0, width, 40);
   g.fill(0, 0, 100);
   g.textFont('Arial');
-  g.textSize(16);
+  let headerSize = isTouchDevice ? 13 : 16;
+  g.textSize(headerSize);
   g.textAlign(LEFT, CENTER);
-  g.text(`← ESC : retour | Scroll : défiler | ↑↓ : taille`, 15, 20);
+  let headerTextPC = `← ESC : retour | Scroll : défiler | ↑↓ : taille`;
+  let headerTextMobile = `← Retour | ⟲ Scroll | ↑↓ : Taille`;
+  let headerMsg = getControlsText(4, headerTextPC, headerTextMobile);
+  g.text(headerMsg, 15, 20);
   
   // Afficher le buffer 2D sur le canvas WEBGL
   image(g, 0, 0);
@@ -685,7 +909,8 @@ function grille5(){
     } else {
       g.fill(0, 0, 100);
     }
-    g.textSize(14);
+    let btnTextSize = isTouchDevice ? 11 : 14;
+    g.textSize(btnTextSize);
     g.textAlign(CENTER, CENTER);
     g.textFont('Arial');
     g.text(variantNames[i], bx + btnW / 2, btnH / 2);
@@ -824,9 +1049,13 @@ function grille5(){
   // Texte contrôles en bas à gauche
   g.fill(0, 0, 60);
   g.textFont('Arial');
-  g.textSize(12);
+  let footerTextSize = isTouchDevice ? 10 : 12;
+  g.textSize(footerTextSize);
   g.textAlign(LEFT, CENTER);
-  g.text('Scroll : défiler le bandeau survolé  |  ↑↓ : taille des caractères  |  A : changer de grille', 15, footerY + footerHeight / 2);
+  let footerTextPC = 'Scroll : défiler le bandeau survolé  |  ↑↓ : taille des caractères  |  A : changer de grille';
+  let footerTextMobile = 'Scroll : Défiler  |  ↑↓ : Taille  |  Swipe ↑↓ : Grille';
+  let footerMsg = getControlsText(4, footerTextPC, footerTextMobile);
+  g.text(footerMsg, 15, footerY + footerHeight / 2);
   g.textAlign(CENTER, CENTER);
   g.text('Persvrance', windowWidth/2, footerY + footerHeight / 2);
 
