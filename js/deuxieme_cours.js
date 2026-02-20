@@ -187,10 +187,10 @@ function drawVirtualButtons(buttons, fg) {
   } else {
     // Déterminer quels boutons afficher selon la grille actuelle
     visibleButtons.push('grille');
-    visibleButtons.push('font');
     
     if (Grille < 4) {
-      // Grilles 0-3 : montrer ← et →
+      // Grilles 0-3 : montrer F, ← et →
+      visibleButtons.push('font');
       visibleButtons.push('prevChar');
       visibleButtons.push('nextColor');
     }
@@ -201,9 +201,7 @@ function drawVirtualButtons(buttons, fg) {
     }
     
     if (Grille === 4) {
-      // Grille 4 (variantes) : montrer + et −
-      visibleButtons.push('plus');
-      visibleButtons.push('minus');
+      // Grille 4 (bandeaux) : pas de F, pas de +/- car gestures suffisent
     }
   }
   
@@ -393,7 +391,17 @@ function touchEnded(event) {
     
     // Clic simple (pas de swipe)
     if (deltaXAbs < 30 && deltaY < 30) {
-      // Vérifier les boutons virtuels d'abord
+      // En fullpage, vérifier le bouton retour en haut à droite (mobile)
+      if (isFullPageMode && isTouchDevice && Grille === 4) {
+        if (touchEndX >= width - 50 && touchEndX <= width - 10 &&
+            touchEndY >= 5 && touchEndY <= 35) {
+          isFullPageMode = false;
+          selectedBandIndex = -1;
+          return;
+        }
+      }
+      
+      // Vérifier les autres boutons virtuels
       let buttonHit = checkVirtualButtonHit(touchEndX, touchEndY, virtualButtons);
       if (buttonHit) {
         handleVirtualButton(buttonHit);
@@ -430,10 +438,10 @@ function touchEnded(event) {
         }
       }
     }
-    // Détection du swipe vertical
+    // Détection du swipe vertical (seulement pour taille en grille 4)
     else if (deltaY > 80 && deltaXAbs < 50) {
       // Sur grille 5, swipe vertical = changer la taille
-      if (Grille === 4 && !isFullPageMode) {
+      if (Grille === 4) {
         let numWeightsNow = variantFonts[currentVariant].length;
         let isSymb = isSymbolesVariant[currentVariant];
         let numBandsNow = isSymb ? numWeightsNow : numWeightsNow * 2;
@@ -448,18 +456,6 @@ function touchEnded(event) {
         } else {
           // Swipe bas = diminuer la taille
           fontScaleG5 = max(fontScaleG5 - 0.15, 0.3);
-        }
-      } 
-      // Sur autres grilles (sauf fullpage), swipe vertical = changer de grille
-      else if (!isFullPageMode) {
-        if (touchEndY < touchStartY) {
-          // Swipe haut = grille suivante
-          Grille++; 
-          Grille = Grille % 5;
-        } else {
-          // Swipe bas = grille précédente
-          Grille--; 
-          if (Grille < 0) Grille = 4;
         }
       }
     }
@@ -491,6 +487,9 @@ function handleVirtualButton(buttonKey) {
     case 'prevChar':
       caractereChoisi++; 
       caractereChoisi = caractereChoisi % liste.length;
+      if (Grille === 3) {
+        chiffreChoisi = (chiffreChoisi + 1) % chiffres.length;
+      }
       break;
     case 'nextColor':
       colorChoisi++; 
@@ -1066,14 +1065,13 @@ function drawBandFullPage(bandIndex) {
   let totalWidth = chars.length * cw;
   
   if (totalWidth >= 1) {
-    // Scroll du bandeau fullpage
-    for (let b = 0; b <= bandIndex; b++) {
-      scrollOffsets[b] += 3;
+    // Scroll du bandeau fullpage - appliquer directement pour meilleure synchronisation
+    if (scrollWheelDelta !== 0) {
+      scrollOffsets[bandIndex] += scrollWheelDelta;
+      scrollWheelDelta = 0;
+    } else {
+      scrollOffsets[bandIndex] += 1;  // Scroll automatique lent
     }
-    let apply = scrollWheelDelta * 0.8;
-    scrollOffsets[bandIndex] += apply;
-    scrollWheelDelta -= apply;
-    if (abs(scrollWheelDelta) < 0.1) scrollWheelDelta = 0;
     
     // Afficher le bandeau en plein écran
     g.textFont(fonts5[weightIdx]);
@@ -1105,9 +1103,19 @@ function drawBandFullPage(bandIndex) {
   g.textSize(headerSize);
   g.textAlign(LEFT, CENTER);
   let headerTextPC = `← ESC : retour | Scroll : défiler | ↑↓ : taille`;
-  let headerTextMobile = `← : Retour | Swipe ← → : Défiler | ↑↓ : Taille`;
+  let headerTextMobile = `Swipe ← → : Défiler | Swipe ↑↓ : Taille | Tap ← : Retour`;
   let headerMsg = getControlsText(4, headerTextPC, headerTextMobile);
   g.text(headerMsg, 15, 20);
+  
+  // Afficher le bouton retour en fullpage (mobile)
+  if (isTouchDevice) {
+    g.fill(100, 0, 0);
+    g.rect(width - 50, 5, 40, 30, 3);
+    g.fill(0, 0, 100);
+    g.textSize(14);
+    g.textAlign(CENTER, CENTER);
+    g.text('←', width - 30, 20);
+  }
   
   // Afficher le buffer 2D sur le canvas WEBGL
   image(g, 0, 0);
@@ -1200,9 +1208,8 @@ function grille5(){
     scrollOffsets[b] += speed;
   }
   if (hoveredBand >= 0) {
-    let apply = scrollWheelDelta * 0.8;
-    scrollOffsets[hoveredBand] += apply;
-    scrollWheelDelta -= apply;
+    scrollOffsets[hoveredBand] += scrollWheelDelta;
+    scrollWheelDelta = 0;
   }
   if (abs(scrollWheelDelta) < 0.1) scrollWheelDelta = 0;
   
@@ -1283,33 +1290,11 @@ function grille5(){
     }
   }
   
-  // --- Footer : contrôles + signature ---
-  let footerY = height - footerHeight;
-  g.stroke(255, 40);
-  g.strokeWeight(1);
-  g.line(0, footerY, width, footerY);
-  g.noStroke();
-  
-  // Texte contrôles en bas à gauche
-  g.fill(0, 0, 60);
-  g.textFont('Arial');
-  let footerTextSize = isTouchDevice ? 10 : 12;
-  g.textSize(footerTextSize);
-  g.textAlign(LEFT, CENTER);
-  let footerTextPC = 'Scroll : défiler le bandeau survolé  |  ↑↓ : taille des caractères  |  A : changer de grille';
-  let footerTextMobile = 'Swipe ← → : Défiler  |  ↑↓ : Taille  |  G : Grille  |  Tap : Fullpage';
-  let footerMsg = getControlsText(4, footerTextPC, footerTextMobile);
-  g.text(footerMsg, 15, footerY + footerHeight / 2);
-  g.textAlign(CENTER, CENTER);
-  g.text('Persvrance', windowWidth/2, footerY + footerHeight / 2);
-
-  // Image signature en bas à droite
-  if (signaImg) {
-    let imgH = footerHeight - 10;
-    let imgW = imgH * (signaImg.width / signaImg.height);
-    g.image(signaImg, width - imgW - 15, footerY + 5, imgW, imgH);
-  }
-  
   // Afficher le buffer 2D sur le canvas WEBGL
   image(g, 0, 0);
+  
+  // Afficher les contrôles du footer avec les boutons virtuels
+  let footerTextPC = 'Scroll : défiler le bandeau survolé  |  ↑↓ : taille des caractères  |  A : changer de grille';
+  let footerTextMobile = 'Swipe ← → : Défiler  |  ↑↓ : Taille  |  G : Grille  |  Tap : Fullpage';
+  drawFooterControls(getControlsText(4, footerTextPC, footerTextMobile));
 }
