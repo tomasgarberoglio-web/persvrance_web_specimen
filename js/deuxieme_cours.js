@@ -126,7 +126,8 @@ let virtualButtons = {
   nextColor: { x: 0, y: 0, w: 38, h: 35, label: '→', color: [150, 0, 0] },
   preset: { x: 0, y: 0, w: 38, h: 35, label: 'P', color: [180, 0, 0] },
   plus: { x: 0, y: 0, w: 35, h: 35, label: '+', color: [100, 0, 0] },
-  minus: { x: 0, y: 0, w: 35, h: 35, label: '−', color: [100, 0, 0] }
+  minus: { x: 0, y: 0, w: 35, h: 35, label: '−', color: [100, 0, 0] },
+  back: { x: 0, y: 0, w: 38, h: 35, label: '←', color: [100, 0, 0] }
 };
 
 // Fonction pour obtenir le texte approprié (PC vs Mobile)
@@ -179,25 +180,31 @@ function drawVirtualButtons(buttons, fg) {
   
   let visibleButtons = [];
   
-  // Déterminer quels boutons afficher selon la grille actuelle
-  visibleButtons.push('grille');
-  visibleButtons.push('font');
-  
-  if (Grille < 4) {
-    // Grilles 0-3 : montrer ← et →
-    visibleButtons.push('prevChar');
-    visibleButtons.push('nextColor');
-  }
-  
-  if (Grille === 3) {
-    // Grille 3 (zones) : montrer P pour preset
-    visibleButtons.push('preset');
-  }
-  
-  if (Grille === 4) {
-    // Grille 4 (variantes) : montrer + et −
-    visibleButtons.push('plus');
-    visibleButtons.push('minus');
+  // En mode fullpage, afficher le bouton retour et G
+  if (isFullPageMode) {
+    visibleButtons.push('back');
+    visibleButtons.push('grille');
+  } else {
+    // Déterminer quels boutons afficher selon la grille actuelle
+    visibleButtons.push('grille');
+    visibleButtons.push('font');
+    
+    if (Grille < 4) {
+      // Grilles 0-3 : montrer ← et →
+      visibleButtons.push('prevChar');
+      visibleButtons.push('nextColor');
+    }
+    
+    if (Grille === 3) {
+      // Grille 3 (zones) : montrer P pour preset
+      visibleButtons.push('preset');
+    }
+    
+    if (Grille === 4) {
+      // Grille 4 (variantes) : montrer + et −
+      visibleButtons.push('plus');
+      visibleButtons.push('minus');
+    }
   }
   
   // Dessiner les boutons visibles
@@ -394,20 +401,22 @@ function touchEnded(event) {
         handleInteractionClick(touchStartX, touchStartY);
       }
     }
-    // En mode fullpage, swipe bas pour retour
-    else if (isFullPageMode && deltaY > 80 && deltaXAbs < 50 && touchEndY > touchStartY) {
-      // Swipe bas = retour du fullpage
-      isFullPageMode = false;
-      selectedBandIndex = -1;
-    }
+    // En mode fullpage, swipe bas est maintenant utilisé par le geste de taille
+    // Utiliser le bouton "retour" pour sortir du fullpage
+    
     // Détection du swipe horizontal (pour défiler bandeaux)
     else if (deltaXAbs > 50 && deltaY < 100) {
+      // En fullpage, vérifier que le swipe n'a pas commencé sur un bouton (conflit d'interaction)
       if (isFullPageMode) {
-        // En fullpage, défiler le bandeau (sensibilité augmentée: * 3.5)
-        scrollWheelDelta = -deltaX * 3.5;
+        let startedOnButton = checkVirtualButtonHit(touchStartX, touchStartY, virtualButtons);
+        if (!startedOnButton) {
+          // Swipe ne commence pas sur un bouton → défiler le bandeau
+          scrollWheelDelta = -deltaX * 5.5;
+        }
+        // Si swipe commence sur bouton, ignorer pour éviter conflit
       } else if (Grille === 4 && hoveredBand >= 0) {
         // Sur grille5 (non fullpage), défiler le bandeau survolé
-        scrollWheelDelta = -deltaX * 3.5;
+        scrollWheelDelta = -deltaX * 5.5;
       } else {
         // Sur autres grilles, standardiser: droite=couleur, gauche=char
         if (deltaX > 0) {
@@ -467,6 +476,11 @@ function handleVirtualButton(buttonKey) {
     case 'grille':
       Grille++; 
       Grille = Grille % 5;
+      break;
+    case 'back':
+      // Bouton retour en fullpage
+      isFullPageMode = false;
+      selectedBandIndex = -1;
       break;
     case 'font':
       fontChoisi++; 
@@ -1056,7 +1070,7 @@ function drawBandFullPage(bandIndex) {
     for (let b = 0; b <= bandIndex; b++) {
       scrollOffsets[b] += 3;
     }
-    let apply = scrollWheelDelta * 0.5;
+    let apply = scrollWheelDelta * 0.8;
     scrollOffsets[bandIndex] += apply;
     scrollWheelDelta -= apply;
     if (abs(scrollWheelDelta) < 0.1) scrollWheelDelta = 0;
@@ -1091,7 +1105,7 @@ function drawBandFullPage(bandIndex) {
   g.textSize(headerSize);
   g.textAlign(LEFT, CENTER);
   let headerTextPC = `← ESC : retour | Scroll : défiler | ↑↓ : taille`;
-  let headerTextMobile = `← Retour | Swipe ← → : Défiler | ↑↓ : Taille`;
+  let headerTextMobile = `← : Retour | Swipe ← → : Défiler | ↑↓ : Taille`;
   let headerMsg = getControlsText(4, headerTextPC, headerTextMobile);
   g.text(headerMsg, 15, 20);
   
@@ -1186,7 +1200,7 @@ function grille5(){
     scrollOffsets[b] += speed;
   }
   if (hoveredBand >= 0) {
-    let apply = scrollWheelDelta * 0.5;
+    let apply = scrollWheelDelta * 0.8;
     scrollOffsets[hoveredBand] += apply;
     scrollWheelDelta -= apply;
   }
@@ -1283,7 +1297,7 @@ function grille5(){
   g.textSize(footerTextSize);
   g.textAlign(LEFT, CENTER);
   let footerTextPC = 'Scroll : défiler le bandeau survolé  |  ↑↓ : taille des caractères  |  A : changer de grille';
-  let footerTextMobile = 'Swipe ← → : Défiler  |  ↑↓ : Taille  |  Swipe ↑↓ : Grille  |  Tap : Fullpage';
+  let footerTextMobile = 'Swipe ← → : Défiler  |  ↑↓ : Taille  |  G : Grille  |  Tap : Fullpage';
   let footerMsg = getControlsText(4, footerTextPC, footerTextMobile);
   g.text(footerMsg, 15, footerY + footerHeight / 2);
   g.textAlign(CENTER, CENTER);
