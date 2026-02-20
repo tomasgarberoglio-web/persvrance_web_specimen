@@ -120,11 +120,11 @@ function setup() {
 
 // Variables globales pour les boutons virtuels
 let virtualButtons = {
-  grille: { x: 0, y: 0, w: 38, h: 35, label: 'G', color: [100, 0, 0] },
+  grille: { x: 0, y: 0, w: 38, h: 35, label: 'A', color: [100, 0, 0] },
   font: { x: 0, y: 0, w: 38, h: 35, label: 'F', color: [200, 0, 0] },
   prevChar: { x: 0, y: 0, w: 38, h: 35, label: '←', color: [150, 0, 0] },
   nextColor: { x: 0, y: 0, w: 38, h: 35, label: '→', color: [150, 0, 0] },
-  preset: { x: 0, y: 0, w: 38, h: 35, label: 'P', color: [180, 0, 0] },
+  preset: { x: 0, y: 0, w: 38, h: 35, label: 'N', color: [180, 0, 0] },
   plus: { x: 0, y: 0, w: 35, h: 35, label: '+', color: [100, 0, 0] },
   minus: { x: 0, y: 0, w: 35, h: 35, label: '−', color: [100, 0, 0] },
   back: { x: 0, y: 0, w: 38, h: 35, label: '←', color: [100, 0, 0] }
@@ -321,7 +321,7 @@ function handleInteractionClick(clickX, clickY) {
    }
  }
  let lecture = sound.isPlaying();
- if(lecture == false){
+ if(lecture == false && Grille !== 4){
   sound.play()
  }    
 }
@@ -706,7 +706,7 @@ function grille1(){
    }
  }
  let textPC = 'Souris : orienter les caractères  |  F : changer de font  |  ← : changer de caractère  |  → : changer de couleur  |  A : changer de grille';
- let textMobile = '↻ : Grille  |  F : Font  |  ← : Char  |  → : Couleur  |  Swipe ↑↓ : Grille';
+ let textMobile = 'Page suivante: A  |  F : Font  |  Caractère: ←  |  Couleur: →';
  drawFooterControls(getControlsText(0, textPC, textMobile));
 }
 
@@ -744,7 +744,7 @@ pop()
   }
  }
  let textPC = 'Souris : interaction  |  F : changer de font  |  → : changer de couleur  |  A : changer de grille';
- let textMobile = 'Tap : Interaction  |  F : Font  |  → : Couleur  |  Swipe ↑↓ : Grille';
+ let textMobile = 'Position du doigt: Interaction  |  Font: F  |  Couleur: →';
  drawFooterControls(getControlsText(1, textPC, textMobile));
 }
 
@@ -830,7 +830,7 @@ else{
       }
     }
   let textPC = 'Souris : densité de la grille  |  F : changer de font  |  ← : changer de caractère  |  → : changer de couleur  |  A : changer de grille';
-  let textMobile = 'Tap : Densité  |  F : Font  |  ← : Char  |  → : Couleur  |  Swipe ↑↓ : Grille';
+  let textMobile = 'Position du doigt: Densité  |  Font: F  |  Caractère: ←  |  Couleur: →';
   drawFooterControls(getControlsText(2, textPC, textMobile));
   }
 
@@ -954,7 +954,7 @@ else if (currentZone === 4) {
 }
 }
  let textPC = 'Souris : zones d\'interaction  |  F : changer de font  |  G : changer de preset  |  ← → : caractère/couleur  |  A : changer de grille';
- let textMobile = 'Slider: Zones  |  F : Font  |  G : Preset  |  ← → : Char/Couleur  |  Swipe ↑↓ : Grille';
+ let textMobile = 'Changement: Slider  |  Font: F  |  Grille : N  | Caractère: ←  |  Couleur: →';
  drawFooterControls(getControlsText(3, textPC, textMobile));
 }
 
@@ -1116,7 +1116,7 @@ function drawBandFullPage(bandIndex) {
   g.textSize(headerSize);
   g.textAlign(LEFT, CENTER);
   let headerTextPC = `← ESC : retour | Scroll : défiler | ↑↓ : taille`;
-  let headerTextMobile = `Swipe ← → : Défiler | Swipe ↑↓ : Taille | Tap ← : Retour`;
+  let headerTextMobile = `Défiler: Swipe ← →  | Taille: Swipe ↑↓ | Tap ← : Retour`;
   let headerMsg = getControlsText(4, headerTextPC, headerTextMobile);
   g.text(headerMsg, 15, 20);
   
@@ -1307,7 +1307,7 @@ function grille5(){
   image(g, 0, 0);
   
   // Afficher les contrôles du footer avec les boutons virtuels
-  let footerTextPC = 'Scroll : défiler le bandeau survolé  |  ↑↓ : taille des caractères  |  A : changer de grille';
-  let footerTextMobile = 'Swipe ← → : Défiler  |  ↑↓ : Taille  |  G : Grille  |  Tap : Fullpage';
+  let footerTextPC = 'Scroll : défiler le bandeau survolé  |  ↑↓ : taille des caractères  |  A : Page suivante';
+  let footerTextMobile = 'Défiler: Swipe ← →  |  Taille: Swipe ↑↓  |  Page suivante: A   |  Fullpage: Tap ';
   drawFooterControls(getControlsText(4, footerTextPC, footerTextMobile));
 }
