@@ -146,12 +146,12 @@ function drawFooterControls(controlsText) {
   fg.fill(150);
   
   // Adapter la taille du texte en fonction du dispositif
-  let textSize = isTouchDevice ? 10 : 12;
+  let textSize = isTouchDevice ? 8 : 12;  // Réduit de 10 à 8 pour mobile
   fg.textSize(textSize);
   
   fg.textAlign(LEFT, BOTTOM);
   fg.textFont('Arial');
-  fg.text(controlsText, 15, height - 10);
+  fg.text(controlsText, 15, height - 8);  // Descendu pour faire place aux boutons
   
   // Afficher les boutons virtuels sur mobile
   if (isTouchDevice) {
@@ -160,9 +160,9 @@ function drawFooterControls(controlsText) {
   
   // Image signature en bas à droite
   if (signaImg) {
-    let imgH = 35;
+    let imgH = isTouchDevice ? 28 : 35;  // Réduit pour mobile
     let imgW = imgH * (signaImg.width / signaImg.height);
-    fg.image(signaImg, width - imgW - 15, height - imgH - 8, imgW, imgH);
+    fg.image(signaImg, width - imgW - 12, height - imgH - 12, imgW, imgH);
   }
   image(fg, 0, 0);
 }
@@ -171,11 +171,11 @@ function drawFooterControls(controlsText) {
 function drawVirtualButtons(buttons, fg) {
   if (!isTouchDevice) return;
   
-  let btnW = 38;
-  let btnH = 35;
-  let spacing = 2;
-  let startX = 8;
-  let startY = height - btnH - 8;
+  let btnW = 34;  // Réduit de 38 pour mobile
+  let btnH = 30;  // Réduit de 35 pour mobile
+  let spacing = 1;  // Réduit de 2
+  let startX = 6;
+  let startY = height - btnH - 28;  // Monté pour dégager l'espace au-dessous
   let currentX = startX;
   
   let visibleButtons = [];
@@ -216,11 +216,11 @@ function drawVirtualButtons(buttons, fg) {
     // Dessiner le bouton
     fg.fill(...btn.color);
     fg.noStroke();
-    fg.rect(btn.x, btn.y, btn.w, btn.h, 3);
+    fg.rect(btn.x, btn.y, btn.w, btn.h, 2);
     
     // Texte du bouton - très petit pour mobile
     fg.fill(0, 0, 100);
-    fg.textSize(8);
+    fg.textSize(7);  // Réduit de 8
     fg.textAlign(CENTER, CENTER);
     fg.textFont('Arial');
     fg.text(btn.label, btn.x + btn.w/2, btn.y + btn.h/2);
@@ -246,6 +246,7 @@ let zoom =0.009; let temps =0;
 // ======== TOUCH SUPPORT ========
 let touchStartX = 0, touchStartY = 0;
 let touchEndX = 0, touchEndY = 0;
+let prevTouchX = 0, prevTouchY = 0;
 let isTouchDevice = false;
 let touchIdentifier = -1;
 let isSwipeScrolling = false;
@@ -334,6 +335,8 @@ function touchStarted(event) {
   if (event.touches && event.touches.length > 0) {
     touchStartX = mouseX;
     touchStartY = mouseY;
+    prevTouchX = mouseX;
+    prevTouchY = mouseY;
     touchIdentifier = event.touches[0].identifier;
     isSwipeScrolling = false;
     
@@ -354,8 +357,6 @@ function touchStarted(event) {
 
 function touchMoved(event) {
   if (event.touches && event.touches.length > 0) {
-    // p5.js met automatiquement à jour mouseX et mouseY
-    // Pas besoin de le faire manuellement
     isSwipeScrolling = true;
     
     // Mettre à jour le slider si en train de dragger
@@ -365,10 +366,30 @@ function touchMoved(event) {
       return false;
     }
     
-    // Empêcher le scroll par défaut pendant interactions
-    if (Grille === 4 && hoveredBand >= 0) {
+    // Appliquer le scroll horizontal en temps réel pour grille 4 (bandeaux)
+    if (Grille === 4) {
+      let deltaX = mouseX - prevTouchX;
+      
+      // En fullpage, scroll le bandeau sélectionné
+      if (isFullPageMode && selectedBandIndex >= 0) {
+        let startedOnButton = checkVirtualButtonHit(touchStartX, touchStartY, virtualButtons);
+        if (!startedOnButton) {
+          scrollOffsets[selectedBandIndex] += -deltaX * 2.0;
+        }
+      }
+      // En mode normal, scroll le bandeau survolé en temps réel
+      else if (hoveredBand >= 0) {
+        scrollOffsets[hoveredBand] += -deltaX * 2.0;
+      }
+      
+      prevTouchX = mouseX;
+      prevTouchY = mouseY;
       event.preventDefault();
+      return false;
     }
+    
+    prevTouchX = mouseX;
+    prevTouchY = mouseY;
     return false;
   }
 }
@@ -414,17 +435,9 @@ function touchEnded(event) {
     
     // Détection du swipe horizontal (pour défiler bandeaux)
     else if (deltaXAbs > 50 && deltaY < 100) {
-      // En fullpage, vérifier que le swipe n'a pas commencé sur un bouton (conflit d'interaction)
-      if (isFullPageMode) {
-        let startedOnButton = checkVirtualButtonHit(touchStartX, touchStartY, virtualButtons);
-        if (!startedOnButton) {
-          // Swipe ne commence pas sur un bouton → défiler le bandeau
-          scrollWheelDelta = -deltaX * 5.5;
-        }
-        // Si swipe commence sur bouton, ignorer pour éviter conflit
-      } else if (Grille === 4 && hoveredBand >= 0) {
-        // Sur grille5 (non fullpage), défiler le bandeau survolé
-        scrollWheelDelta = -deltaX * 5.5;
+      // Sur grille 4, le scroll a déjà été appliqué en temps réel dans touchMoved
+      if (Grille === 4) {
+        // Rien à faire, le scroll a déjà été géré
       } else {
         // Sur autres grilles, standardiser: droite=couleur, gauche=char
         if (deltaX > 0) {
@@ -640,7 +653,7 @@ function grille1(){
  temps = temps+level*0.5;
  let rota= mouseX*0.5+mouseX*0.5
  background(0)
- for (let x = marge; x <width-marge; x+=grille) { for (let y = marge; y<height-marge; y+=grille) {
+ for (let x = marge; x <width-marge; x+=grille) { for (let y = marge; y<height-100; y+=grille) {
     //  fill(random(frameCount*1.5)) 
     let seed = x*y; let paramX=zoom*x; let paramY=zoom*y; let noise2d = noise(paramX,paramY,temps)*grille*2
     let treshold = noise(paramX,paramY,temps)
@@ -705,7 +718,7 @@ bass = fft.getEnergy("bass");
 let bassConverti = map(bass,0,255,0,1)
 temps = temps+level*0.5;
 for (let x = marge+60; x <width-marge; x+=grille+80) {
-for (let y = marge+60; y<height-marge; y+=grille+80) {
+for (let y = marge+60; y<height-100; y+=grille+80) {
 let paramX=x*zoom; let paramY =y*zoom;
 //   let paramX=x*zoom;
 // let paramY =y*zoom;
@@ -744,7 +757,7 @@ let level = amp.getLevel(); let bass; let mid; fft.analyze();
   //   for (let x = marge+60; x <width-marge; x+=grille+100) {
   //    for (let y = marge+60; y<height-marge; y+=grille+100) {
   for (let x = marge; x <width-marge; x+=mouseX/10+grille) {
-  for (let y = marge; y<height-marge; y+=mouseX/10+grille) {
+  for (let y = marge; y<height-100; y+=mouseX/10+grille) {
   let paramX=x*zoom; let paramY =y*zoom;
   //   let paramX=x*zoom;
   // let paramY =y*zoom;
@@ -849,7 +862,7 @@ else{
   }
   
 for (let x = marge4; x < width - marge4; x += grille4Size){
-for (let y = marge4; y < height - marge4; y += grille4Size) {
+for (let y = marge4; y < height - 100; y += grille4Size) {
   let paramX=x*zoom; let paramY =y*zoom;
   //   let paramX=x*zoom;
   // let paramY =y*zoom;
