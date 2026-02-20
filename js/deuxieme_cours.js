@@ -403,11 +403,11 @@ function touchEnded(event) {
     // Détection du swipe horizontal (pour défiler bandeaux)
     else if (deltaXAbs > 50 && deltaY < 100) {
       if (isFullPageMode) {
-        // En fullpage, défiler le bandeau (sensibilité augmentée: * 2)
-        scrollWheelDelta = -deltaX * 2;
+        // En fullpage, défiler le bandeau (sensibilité augmentée: * 3.5)
+        scrollWheelDelta = -deltaX * 3.5;
       } else if (Grille === 4 && hoveredBand >= 0) {
         // Sur grille5 (non fullpage), défiler le bandeau survolé
-        scrollWheelDelta = -deltaX * 2;
+        scrollWheelDelta = -deltaX * 3.5;
       } else {
         // Sur autres grilles, standardiser: droite=couleur, gauche=char
         if (deltaX > 0) {
@@ -421,16 +421,37 @@ function touchEnded(event) {
         }
       }
     }
-    // Détection du swipe vertical (changer de grille) - sauf en fullpage
-    else if (!isFullPageMode && deltaY > 80 && deltaXAbs < 50) {
-      if (touchEndY < touchStartY) {
-        // Swipe haut = grille suivante
-        Grille++; 
-        Grille = Grille % 5;
-      } else {
-        // Swipe bas = grille précédente
-        Grille--; 
-        if (Grille < 0) Grille = 4;
+    // Détection du swipe vertical
+    else if (deltaY > 80 && deltaXAbs < 50) {
+      // Sur grille 5, swipe vertical = changer la taille
+      if (Grille === 4 && !isFullPageMode) {
+        let numWeightsNow = variantFonts[currentVariant].length;
+        let isSymb = isSymbolesVariant[currentVariant];
+        let numBandsNow = isSymb ? numWeightsNow : numWeightsNow * 2;
+        let maxRatio = 0.95;
+        if (numBandsNow > 6) maxRatio = 0.75;
+        if (numBandsNow > 8) maxRatio = 0.60;
+        let maxScale = maxRatio / 0.75;
+        
+        if (touchEndY < touchStartY) {
+          // Swipe haut = augmenter la taille
+          fontScaleG5 = min(fontScaleG5 + 0.15, maxScale);
+        } else {
+          // Swipe bas = diminuer la taille
+          fontScaleG5 = max(fontScaleG5 - 0.15, 0.3);
+        }
+      } 
+      // Sur autres grilles (sauf fullpage), swipe vertical = changer de grille
+      else if (!isFullPageMode) {
+        if (touchEndY < touchStartY) {
+          // Swipe haut = grille suivante
+          Grille++; 
+          Grille = Grille % 5;
+        } else {
+          // Swipe bas = grille précédente
+          Grille--; 
+          if (Grille < 0) Grille = 4;
+        }
       }
     }
     
@@ -1035,7 +1056,7 @@ function drawBandFullPage(bandIndex) {
     for (let b = 0; b <= bandIndex; b++) {
       scrollOffsets[b] += 3;
     }
-    let apply = scrollWheelDelta * 0.3;
+    let apply = scrollWheelDelta * 0.5;
     scrollOffsets[bandIndex] += apply;
     scrollWheelDelta -= apply;
     if (abs(scrollWheelDelta) < 0.1) scrollWheelDelta = 0;
@@ -1070,7 +1091,7 @@ function drawBandFullPage(bandIndex) {
   g.textSize(headerSize);
   g.textAlign(LEFT, CENTER);
   let headerTextPC = `← ESC : retour | Scroll : défiler | ↑↓ : taille`;
-  let headerTextMobile = `← Retour | ⟲ Scroll | ↑↓ : Taille`;
+  let headerTextMobile = `← Retour | Swipe ← → : Défiler | ↑↓ : Taille`;
   let headerMsg = getControlsText(4, headerTextPC, headerTextMobile);
   g.text(headerMsg, 15, 20);
   
@@ -1165,7 +1186,7 @@ function grille5(){
     scrollOffsets[b] += speed;
   }
   if (hoveredBand >= 0) {
-    let apply = scrollWheelDelta * 0.3;
+    let apply = scrollWheelDelta * 0.5;
     scrollOffsets[hoveredBand] += apply;
     scrollWheelDelta -= apply;
   }
@@ -1262,7 +1283,7 @@ function grille5(){
   g.textSize(footerTextSize);
   g.textAlign(LEFT, CENTER);
   let footerTextPC = 'Scroll : défiler le bandeau survolé  |  ↑↓ : taille des caractères  |  A : changer de grille';
-  let footerTextMobile = 'Scroll : Défiler  |  ↑↓ : Taille  |  Swipe ↑↓ : Grille';
+  let footerTextMobile = 'Swipe ← → : Défiler  |  ↑↓ : Taille  |  Swipe ↑↓ : Grille  |  Tap : Fullpage';
   let footerMsg = getControlsText(4, footerTextPC, footerTextMobile);
   g.text(footerMsg, 15, footerY + footerHeight / 2);
   g.textAlign(CENTER, CENTER);
