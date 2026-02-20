@@ -113,6 +113,7 @@ function setup() {
 
     // Buffer 2D pour le footer (contrôles + signature)
     footerGfx = createGraphics(windowWidth, windowHeight);
+    footerGfx.colorMode(HSL);
     
     // Activer le support tactile
     checkTouchSupport();
@@ -120,14 +121,14 @@ function setup() {
 
 // Variables globales pour les boutons virtuels
 let virtualButtons = {
-  grille: { x: 0, y: 0, w: 38, h: 35, label: 'A', color: [100, 0, 0] },
-  font: { x: 0, y: 0, w: 38, h: 35, label: 'F', color: [200, 0, 0] },
-  prevChar: { x: 0, y: 0, w: 38, h: 35, label: '←', color: [150, 0, 0] },
-  nextColor: { x: 0, y: 0, w: 38, h: 35, label: '→', color: [150, 0, 0] },
-  preset: { x: 0, y: 0, w: 38, h: 35, label: 'N', color: [180, 0, 0] },
-  plus: { x: 0, y: 0, w: 35, h: 35, label: '+', color: [100, 0, 0] },
-  minus: { x: 0, y: 0, w: 35, h: 35, label: '−', color: [100, 0, 0] },
-  back: { x: 0, y: 0, w: 38, h: 35, label: '←', color: [100, 0, 0] }
+  grille: { x: 0, y: 0, w: 38, h: 35, label: 'A', color: [0, 0, 40] },
+  font: { x: 0, y: 0, w: 38, h: 35, label: 'F', color: [0, 0, 40] },
+  prevChar: { x: 0, y: 0, w: 38, h: 35, label: '←', color: [0, 0, 40] },
+  nextColor: { x: 0, y: 0, w: 38, h: 35, label: '→', color: [0, 0, 40] },
+  preset: { x: 0, y: 0, w: 38, h: 35, label: 'N', color: [0, 0, 40] },
+  plus: { x: 0, y: 0, w: 35, h: 35, label: '+', color: [0, 0, 40] },
+  minus: { x: 0, y: 0, w: 35, h: 35, label: '−', color: [0, 0, 40] },
+  back: { x: 0, y: 0, w: 38, h: 35, label: '←', color: [0, 0, 40] }
 };
 
 // Fonction pour obtenir le texte approprié (PC vs Mobile)
@@ -327,6 +328,20 @@ function handleInteractionClick(clickX, clickY) {
 }
 
 function mousePressed(){
+  // Vérifier si on clique sur l'image signature
+  if (signaImg) {
+    let imgH = isTouchDevice ? 28 : 35;
+    let imgW = imgH * (signaImg.width / signaImg.height);
+    let signaX = width - imgW - 12;
+    let signaY = height - imgH - 12;
+    
+    if (mouseX >= signaX && mouseX < signaX + imgW &&
+        mouseY >= signaY && mouseY < signaY + imgH) {
+      window.open('https://tomasgarberoglio-web.github.io/jg_portfolio/', '_blank');
+      return false;
+    }
+  }
+  
   handleInteractionClick(mouseX, mouseY);
 }
 
@@ -412,6 +427,21 @@ function touchEnded(event) {
     
     // Clic simple (pas de swipe)
     if (deltaXAbs < 30 && deltaY < 30) {
+      // Vérifier si on clique sur l'image signature
+      if (signaImg) {
+        let imgH = isTouchDevice ? 28 : 35;
+        let imgW = imgH * (signaImg.width / signaImg.height);
+        let signaX = width - imgW - 12;
+        let signaY = height - imgH - 12;
+        
+        if (touchEndX >= signaX && touchEndX < signaX + imgW &&
+            touchEndY >= signaY && touchEndY < signaY + imgH) {
+          window.open('https://tomasgarberoglio-web.github.io/jg_portfolio/', '_blank');
+          event.preventDefault();
+          return false;
+        }
+      }
+      
       // En fullpage, vérifier le bouton retour en haut à droite (mobile)
       if (isFullPageMode && isTouchDevice && Grille === 4) {
         if (touchEndX >= width - 50 && touchEndX <= width - 10 &&
