@@ -40,6 +40,10 @@ let isFullPageMode = false;
 let selectedBandIndex = -1;
 let bandYPositions = []; // Pour mémoriser les positions y des bandeaux
 
+// Slider pour grille 4 mobile
+let g4SliderValue = 0; // 0 = zone 1 (lettres), 1 = zone 2 (chiffres), 2 = zone 3 (figé)
+let isG4SliderDragging = false;
+
 let Grille = 4;
 
 
@@ -116,12 +120,13 @@ function setup() {
 
 // Variables globales pour les boutons virtuels
 let virtualButtons = {
-  grille: { x: 0, y: 0, w: 60, h: 40, label: 'GRILLE', color: [100, 0, 0] },
-  font: { x: 0, y: 0, w: 50, h: 40, label: 'FONT', color: [200, 0, 0] },
-  prevChar: { x: 0, y: 0, w: 50, h: 40, label: '←', color: [150, 0, 0] },
-  nextColor: { x: 0, y: 0, w: 50, h: 40, label: '→', color: [150, 0, 0] },
-  plus: { x: 0, y: 0, w: 45, h: 40, label: '+', color: [100, 0, 0] },
-  minus: { x: 0, y: 0, w: 45, h: 40, label: '−', color: [100, 0, 0] }
+  grille: { x: 0, y: 0, w: 38, h: 35, label: 'G', color: [100, 0, 0] },
+  font: { x: 0, y: 0, w: 38, h: 35, label: 'F', color: [200, 0, 0] },
+  prevChar: { x: 0, y: 0, w: 38, h: 35, label: '←', color: [150, 0, 0] },
+  nextColor: { x: 0, y: 0, w: 38, h: 35, label: '→', color: [150, 0, 0] },
+  preset: { x: 0, y: 0, w: 38, h: 35, label: 'P', color: [180, 0, 0] },
+  plus: { x: 0, y: 0, w: 35, h: 35, label: '+', color: [100, 0, 0] },
+  minus: { x: 0, y: 0, w: 35, h: 35, label: '−', color: [100, 0, 0] }
 };
 
 // Fonction pour obtenir le texte approprié (PC vs Mobile)
@@ -165,14 +170,38 @@ function drawFooterControls(controlsText) {
 function drawVirtualButtons(buttons, fg) {
   if (!isTouchDevice) return;
   
-  let btnW = 40;
+  let btnW = 38;
   let btnH = 35;
-  let spacing = 3;
+  let spacing = 2;
   let startX = 8;
   let startY = height - btnH - 8;
   let currentX = startX;
   
-  for (let key in buttons) {
+  let visibleButtons = [];
+  
+  // Déterminer quels boutons afficher selon la grille actuelle
+  visibleButtons.push('grille');
+  visibleButtons.push('font');
+  
+  if (Grille < 4) {
+    // Grilles 0-3 : montrer ← et →
+    visibleButtons.push('prevChar');
+    visibleButtons.push('nextColor');
+  }
+  
+  if (Grille === 3) {
+    // Grille 3 (zones) : montrer P pour preset
+    visibleButtons.push('preset');
+  }
+  
+  if (Grille === 4) {
+    // Grille 4 (variantes) : montrer + et −
+    visibleButtons.push('plus');
+    visibleButtons.push('minus');
+  }
+  
+  // Dessiner les boutons visibles
+  for (let key of visibleButtons) {
     let btn = buttons[key];
     btn.x = currentX;
     btn.y = startY;
@@ -186,7 +215,7 @@ function drawVirtualButtons(buttons, fg) {
     
     // Texte du bouton - très petit pour mobile
     fg.fill(0, 0, 100);
-    fg.textSize(7);
+    fg.textSize(8);
     fg.textAlign(CENTER, CENTER);
     fg.textFont('Arial');
     fg.text(btn.label, btn.x + btn.w/2, btn.y + btn.h/2);
@@ -303,6 +332,13 @@ function touchStarted(event) {
     touchIdentifier = event.touches[0].identifier;
     isSwipeScrolling = false;
     
+    // Vérifier si c'est le slider de grille 4
+    if (Grille === 3) {
+      if (updateG4SliderFromTouch(mouseX, mouseY)) {
+        return false;
+      }
+    }
+    
     // Empêcher le scroll par défaut
     if (Grille === 4 && hoveredBand >= 0) {
       event.preventDefault();
@@ -317,6 +353,13 @@ function touchMoved(event) {
     // Pas besoin de le faire manuellement
     isSwipeScrolling = true;
     
+    // Mettre à jour le slider si en train de dragger
+    if (isG4SliderDragging && Grille === 3) {
+      updateG4SliderFromTouch(mouseX, mouseY);
+      event.preventDefault();
+      return false;
+    }
+    
     // Empêcher le scroll par défaut pendant interactions
     if (Grille === 4 && hoveredBand >= 0) {
       event.preventDefault();
@@ -329,6 +372,13 @@ function touchEnded(event) {
   if (event.changedTouches && event.changedTouches.length > 0) {
     touchEndX = mouseX;
     touchEndY = mouseY;
+    
+    // Arrêter le dragging du slider
+    if (isG4SliderDragging) {
+      isG4SliderDragging = false;
+      event.preventDefault();
+      return false;
+    }
     
     let deltaX = touchEndX - touchStartX;
     let deltaY = abs(touchEndY - touchStartY);
@@ -344,13 +394,22 @@ function touchEnded(event) {
         handleInteractionClick(touchStartX, touchStartY);
       }
     }
-    // Détection du swipe horizontal (pour défiler bandeaux ou grilles)
+    // En mode fullpage, swipe bas pour retour
+    else if (isFullPageMode && deltaY > 80 && deltaXAbs < 50 && touchEndY > touchStartY) {
+      // Swipe bas = retour du fullpage
+      isFullPageMode = false;
+      selectedBandIndex = -1;
+    }
+    // Détection du swipe horizontal (pour défiler bandeaux)
     else if (deltaXAbs > 50 && deltaY < 100) {
-      if (Grille === 4 && hoveredBand >= 0) {
-        // Swipe sur grille5 - défiler le bandeau
-        scrollWheelDelta = deltaX * 0.5;
-      } else if (Grille !== 4) {
-        // Swipe pour changer de caractère/couleur sur autres grilles
+      if (isFullPageMode) {
+        // En fullpage, défiler le bandeau (sensibilité augmentée: * 2)
+        scrollWheelDelta = -deltaX * 2;
+      } else if (Grille === 4 && hoveredBand >= 0) {
+        // Sur grille5 (non fullpage), défiler le bandeau survolé
+        scrollWheelDelta = -deltaX * 2;
+      } else {
+        // Sur autres grilles, standardiser: droite=couleur, gauche=char
         if (deltaX > 0) {
           // Swipe droite = couleur suivante
           colorChoisi++; 
@@ -362,8 +421,8 @@ function touchEnded(event) {
         }
       }
     }
-    // Détection du swipe vertical (changer de grille)
-    else if (deltaY > 80 && deltaXAbs < 50) {
+    // Détection du swipe vertical (changer de grille) - sauf en fullpage
+    else if (!isFullPageMode && deltaY > 80 && deltaXAbs < 50) {
       if (touchEndY < touchStartY) {
         // Swipe haut = grille suivante
         Grille++; 
@@ -403,6 +462,24 @@ function handleVirtualButton(buttonKey) {
       colorChoisi = colorChoisi % colorListe.length;
       colorChoisiFi++; 
       colorChoisiFi = colorChoisiFi % colorListeFi.length;
+      break;
+    case 'preset':
+      // Changer le preset de grille 4
+      presetGrille4++;
+      presetGrille4 = presetGrille4 % 3;
+
+      if (presetGrille4 === 0) {
+        grille4Size = 28;
+        marge4 = 40;
+      }
+      if (presetGrille4 === 1) {
+        grille4Size = 42;
+        marge4 = 80;
+      }
+      if (presetGrille4 === 2) {
+        grille4Size = 66;
+        marge4 = 120;
+      }
       break;
     case 'plus':
       fontScaleG5 = min(fontScaleG5 + 0.1, 1.5);
@@ -717,6 +794,26 @@ else{
   bass = fft.getEnergy("bass");
   let bassConverti = map(bass,0,255,0,1)
   temps = temps+level*0.5;
+  
+  // Calculer les limites des zones basées sur des proportions (identiques sur PC et mobile)
+  let zone1Limit = width / 4;
+  let zone2Limit = width / 2;
+  let zone3Limit = (width * 3) / 4;
+  
+  // Afficher les délimiteurs visuels des zones (PC uniquement)
+  if (!isTouchDevice) {
+    stroke(0, 0, 50);
+    strokeWeight(2);
+    line(zone1Limit, marge4, zone1Limit, height - marge4 - 100);
+    line(zone2Limit, marge4, zone2Limit, height - marge4 - 100);
+    line(zone3Limit, marge4, zone3Limit, height - marge4 - 100);
+  }
+  
+  // En mobile, afficher le slider
+  if (isTouchDevice) {
+    drawG4Slider();
+  }
+  
 for (let x = marge4; x < width - marge4; x += grille4Size){
 for (let y = marge4; y < height - marge4; y += grille4Size) {
   let paramX=x*zoom; let paramY =y*zoom;
@@ -741,28 +838,58 @@ for (let y = marge4; y < height - marge4; y += grille4Size) {
   //    circle(grille/2,grille/2,10)
   textSize(noise3d*0.22)
   //  textSize(30)
-fill(colorListe[colorChoisi],noise3d,noise3d*0.2)
  textFont(FontListe[FontChoisi]);
-   if(mouseX>200){
-     caractereChoisi++; caractereChoisi = caractereChoisi % liste.length;
-     colorChoisi++; colorChoisi = colorChoisi % colorListe.length;
-   }
- // zone 1 → lettres
-if (mouseX <= 600) {
+ 
+ // Déterminer la zone (identique sur PC et mobile - basée sur proportions)
+ let currentZone;
+ if (isTouchDevice) {
+   // Sur mobile, utiliser le slider (4 zones)
+   currentZone = getG4ZoneFromSlider();
+ } else {
+   // Sur PC, utiliser mouseX (4 zones - proportionnelles à la largeur)
+   if (mouseX <= zone1Limit) currentZone = 1;      // Lettres figées
+   else if (mouseX <= zone2Limit) currentZone = 2;  // Lettres aléa
+   else if (mouseX <= zone3Limit) currentZone = 3; // Chiffres aléa
+   else currentZone = 4;                           // Chiffres figés
+ }
+ 
+ // Changer les caractères aléatoirement SEULEMENT en zones 2 et 3
+ // Zone 2 : Lettres aléa - change caractereChoisi ET colorChoisi
+ if (currentZone === 2) {
+   caractereChoisi++; caractereChoisi = caractereChoisi % liste.length;
+   colorChoisi++; colorChoisi = colorChoisi % colorListe.length;
+ }
+ // Zone 3 : Chiffres aléa - change chiffreChoisi ET colorChoisi
+ if (currentZone === 3) {
+   chiffreChoisi++;
+   chiffreChoisi = chiffreChoisi % chiffres.length;
+   colorChoisi++; colorChoisi = colorChoisi % colorListe.length;
+ }
+ 
+ // Appliquer la couleur appropriée selon la zone
+ if (currentZone === 4) {
+   fill(colorListeFi[colorChoisiFi], noise3d, noise3d*0.2);
+ } else {
+   fill(colorListe[colorChoisi], noise3d, noise3d*0.2);
+ }
+ 
+ // zone 1 → lettres figées
+if (currentZone === 1) {
   text(Liste[caractereChoisi], -16.5, 1);
 }
 
-// zone 2 → chiffres qui changent
-else if (mouseX > 600 && mouseX <= 1000) {
-  chiffreChoisi++;
-  chiffreChoisi = chiffreChoisi % chiffres.length;
+// zone 2 → lettres aléatoires
+else if (currentZone === 2) {
+  text(Liste[caractereChoisi], -16.5, 1);
+}
 
+// zone 3 → chiffres aléatoires
+else if (currentZone === 3) {
   text(chiffres[chiffreChoisi], -16.5, 1);
 }
 
-// zone 3 → chiffres figés
-else if (mouseX > 1000) {
-  fill(colorListeFi[colorChoisiFi],noise3d,noise3d*0.2)
+// zone 4 → chiffres figés
+else if (currentZone === 4) {
   text(chiffres[chiffreChoisi], -16.5, 1);
   
 }
@@ -780,10 +907,92 @@ else if (mouseX > 1000) {
 }
 }
  let textPC = 'Souris : zones d\'interaction  |  F : changer de font  |  G : changer de preset  |  ← → : caractère/couleur  |  A : changer de grille';
- let textMobile = 'Tap : Zones  |  F : Font  |  G : Preset  |  ← → : Char/Couleur  |  Swipe ↑↓ : Grille';
+ let textMobile = 'Slider: Zones  |  F : Font  |  G : Preset  |  ← → : Char/Couleur  |  Swipe ↑↓ : Grille';
  drawFooterControls(getControlsText(3, textPC, textMobile));
 }
 
+// ========== SLIDER POUR GRILLE 4 MOBILE ==========
+function drawG4Slider() {
+  if (!isTouchDevice || Grille !== 3) return;
+  
+  let sliderY = height - 80;
+  let sliderX = 20;
+  let sliderW = width - 40;
+  let sliderH = 8;
+  let sliderRadius = 15;
+  
+  // Fond du slider
+  fill(0, 0, 30);
+  noStroke();
+  rect(sliderX, sliderY, sliderW, sliderH, 4);
+  
+  // 4 zones de couleur (proportionnelles aux zones)
+  let zoneW = sliderW / 4;
+  fill(59, 60, 50);     // Zone 1 - Lettres figées
+  rect(sliderX, sliderY, zoneW, sliderH, 4);
+  fill(59, 100, 50);    // Zone 2 - Lettres aléa
+  rect(sliderX + zoneW, sliderY, zoneW, sliderH, 4);
+  fill(327, 100, 50);   // Zone 3 - Chiffres aléa
+  rect(sliderX + zoneW * 2, sliderY, zoneW, sliderH, 4);
+  fill(277, 100, 50);   // Zone 4 - Chiffres figés
+  rect(sliderX + zoneW * 3, sliderY, zoneW, sliderH, 4);
+  
+  // Délimiteurs visuels sur le slider (alignés avec les zones)
+  stroke(0, 0, 60);
+  strokeWeight(1);
+  line(sliderX + zoneW, sliderY - 5, sliderX + zoneW, sliderY + sliderH + 5);
+  line(sliderX + zoneW * 2, sliderY - 5, sliderX + zoneW * 2, sliderY + sliderH + 5);
+  line(sliderX + zoneW * 3, sliderY - 5, sliderX + zoneW * 3, sliderY + sliderH + 5);
+  
+  // Curseur
+  noStroke();
+  let cursorX = sliderX + (g4SliderValue / 3) * sliderW;
+  fill(0, 0, 80);
+  circle(cursorX, sliderY + sliderH/2, sliderRadius);
+  
+  // Texte des zones
+  fill(0, 0, 100);
+  textSize(8);
+  textAlign(CENTER, CENTER);
+  textFont('Arial');
+  text('Lt.fig', sliderX + zoneW/2, sliderY - 12);
+  text('Lt.aléa', sliderX + zoneW*1.5, sliderY - 12);
+  text('Ch.aléa', sliderX + zoneW*2.5, sliderY - 12);
+  text('Ch.fig', sliderX + zoneW*3.5, sliderY - 12);
+}
+
+function updateG4SliderFromTouch(touchX, touchY) {
+  if (!isTouchDevice || Grille !== 3) return;
+  
+  let sliderY = height - 80;
+  let sliderX = 20;
+  let sliderW = width - 40;
+  let sliderH = 8;
+  let sliderRadius = 15;
+  
+  // Vérifier si le touch est sur le slider (avec marge)
+  if (touchY >= sliderY - sliderRadius && touchY <= sliderY + sliderH + sliderRadius &&
+      touchX >= sliderX && touchX <= sliderX + sliderW) {
+    
+    // Calculer la position en fonction du touch (0-3 pour 4 zones)
+    let relX = touchX - sliderX;
+    g4SliderValue = constrain((relX / sliderW) * 3, 0, 3);
+    isG4SliderDragging = true;
+    return true;
+  }
+  return false;
+}
+
+function getG4ZoneFromSlider() {
+  // 0-0.75 = zone 1 (lettres figées)
+  // 0.75-1.5 = zone 2 (lettres aléa)
+  // 1.5-2.25 = zone 3 (chiffres aléa)
+  // 2.25-3 = zone 4 (chiffres figés)
+  if (g4SliderValue < 0.75) return 1;
+  if (g4SliderValue < 1.5) return 2;
+  if (g4SliderValue < 2.25) return 3;
+  return 4;
+}
 
 function drawBandFullPage(bandIndex) {
   background(0);
